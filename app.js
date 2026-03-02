@@ -1,20 +1,14 @@
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+import express from "express";
+import {PORT} from "./config/env.js";
+const app = express();
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+app.get("/", async (req, res) => {
+    res.send("Welcome to the Github App");
+})
 
-var app = express();
+app.listen(PORT, () => {
+    console.log(`SubzTracker listening on port http://localhost:${PORT}`);
+});
 
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
-
-module.exports = app;
+export default app;
+//console.log("server started");
