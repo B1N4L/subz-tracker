@@ -8,5 +8,5 @@ config({
 
 //To switch between development and production with ease
 //port number is getting from the env. variables file
-export const {PORT, NODE_ENV} = process.env;
+export const {PORT, NODE_ENV, DB_URI} = process.env;
 
