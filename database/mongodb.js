@@ -10,7 +10,7 @@ const connectToDB = async () => {
         await mongoose.connect(DB_URI);
         console.log(`Connected to DB in ${NODE_ENV} environment`);
     } catch(err) {
-        console.error('Error connecting to DB.', error);
+        console.error('Error connecting to DB.', err);
         process.exit(1);
     }
 }

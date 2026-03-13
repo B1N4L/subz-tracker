@@ -1,4 +1,4 @@
-import { config } from 'dotenv';
+import { config } from 'dotenv'; //dotenv npm package
 
 //extracts environmental variables
 //config({path: '.env'}); //suitable only when there's a single env. variable
@@ -8,5 +8,10 @@ config({
 
 //To switch between development and production with ease
 //port number is getting from the env. variables file
-export const {PORT, NODE_ENV, DB_URI} = process.env;
+export const {
+    PORT,
+    NODE_ENV,
+    DB_URI,
+    JWT_SECRET, JWT_EXPIRES_IN,
+} = process.env;
 
