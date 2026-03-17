@@ -19,8 +19,8 @@ app.use(arcjetMiddleware);
 
 //show which routes which we want to use.
 app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/users', userRouter);
-app.use('/api/v1/subscriptions', subscriptionRouter);
+app.use('/api/v1/user', userRouter);
+app.use('/api/v1/subscription', subscriptionRouter);
 
 // custom middleware for error handling
 app.use(errorMiddleware);

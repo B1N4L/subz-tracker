@@ -14,20 +14,27 @@ const subscriptionSchema = mongoose.Schema({
         required: [true,'subscription price is required'],
         min:[0, 'Price must be a positive integer'],
         max:[1000000, 'Price must be a positive integer'],
-        currency: {
-            type: String,
-            enum: ['EUR', 'GBP', 'USD', 'LKR'],
-            default: 'USD',
-        },
-        frequency: {
-            type: String,
-            enum: ['daily', 'weekly', 'monthly', 'yearly'],
-        },
-        category: {
-            type: String,
-            enum: ['sports', 'news', 'entertainment', 'lifestyle', 'technology', 'finance', 'political', 'other'],
-            required: true,
-        }
+    },
+
+    currency: {
+        type: String,
+        uppercase: true,
+        enum: ['EUR', 'GBP', 'USD', 'LKR'],  // normalize to UPPERCASE so "usd", "Usd", "USD" all validate
+        default: 'USD',
+    },
+
+    frequency: {
+        type: String,
+        lowercase: true, // normalize to lowercase
+        enum: ['daily', 'weekly', 'monthly', 'yearly'],
+        required: true,
+    },
+
+    category: {
+        type: String,
+        lowercase: true, // normalize to lowercase
+        enum: ['sports', 'news', 'entertainment', 'lifestyle', 'technology', 'finance', 'political', 'other'],
+        required: true,
     },
     paymentMethod: {
         type: String,
@@ -38,6 +45,7 @@ const subscriptionSchema = mongoose.Schema({
     },
     status: {
         type: String,
+        lowercase: true, // normalize to lowercase
         enum: ['active', 'canceled', 'expired'],
         default: 'active',
     },
@@ -51,7 +59,7 @@ const subscriptionSchema = mongoose.Schema({
     },
     renewalDate: {
         type: Date,
-        required: true,
+        required: false,
         validate: {
             //wrapping in an arrow function to work with .this
             validator: function (value) {
@@ -71,8 +79,11 @@ const subscriptionSchema = mongoose.Schema({
 }, {timestamps: true});
 
 //call certain actions before document SAVE action
-subscriptionSchema.pre ( 'save', function (next) {
+subscriptionSchema.pre ( 'save', function () {
 //auto calculates the renewal date if missing.
+    // normalized frequency field to lowercase (mongoose will lowercase it in schema, but being defensive)
+    const freq = (this.frequency || "").toString().toLowerCase();
+
     if(!this.renewalDate){
         const renewalPeriods = {
             daily: 1,
@@ -91,7 +102,6 @@ subscriptionSchema.pre ( 'save', function (next) {
         this.status = 'expired';
     }
 
-    next();
 } )
 
 const Subscription = mongoose.model('Subscription', subscriptionSchema);
