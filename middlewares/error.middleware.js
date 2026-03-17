@@ -1,43 +1,54 @@
 // err: information that happened before the request
-// next: what happens after when your'e ready to proceed to the next step
+// next: what happens after when you're ready to proceed to the next step
 const errorMiddleware = (err, req, res, next) => {
-
-    try{
-        let error = {...err };
-        error.message = err.message;
+    try {
         console.error(err);
 
+        let statusCode = err.statusCode || 500;
+        let message = err.message || "Internal server error";
+        let errors = null;
 
         // Mongoose bad ObjectId
-        if(err.name === 'CastError'){
-            const message = 'Resource not found';
-
-            error = new Error(message);
-            error.statusCode = 404;
+        if (err.name === "CastError") {
+            statusCode = 404;
+            message = "Resource not found";
         }
 
         // Mongoose duplicate key
-        if(err.code === 11000){
-            const message = 'Resource field already exists';
-            error = new Error(message);
-            error.statusCode = 400;
+        if (err.code === 11000) {
+            statusCode = 400;
+            const field = Object.keys(err.keyValue || {})[0] || "field";
+            message = `${field} already exists`;
+            errors = {
+                [field]: [`${field} already exists`],
+            };
         }
 
         // Mongoose validation error
-        if(err.name === 'ValidationError'){
-            // form the message by mapping over values of the object.
-            const message = Object.values(err.errors).map(value => {val.message});
-            error = new Error(message.join(', '));
-            error.statusCode = 400;
+        if (err.name === "ValidationError") {
+            statusCode = 400;
+            message = "Validation failed";
+
+            errors = Object.values(err.errors).reduce((acc, val) => {
+                const field = val.path;
+
+                if (!acc[field]) {
+                    acc[field] = [];
+                }
+
+                acc[field].push(val.message);
+                return acc;
+            }, {});
         }
 
-        res.status(err.statusCode || 500).json({
+        res.status(statusCode).json({
             success: false,
-            error: error.message || 'server error'
+            message,
+            ...(errors && { errors }),
         });
 
-    } catch(error){
-        next(error); //to send the error to the next step to show error actually happened.
+    } catch (handlerError) {
+        next(handlerError); // forward if error handler itself fails
     }
 };
 
