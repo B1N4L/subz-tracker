@@ -7,6 +7,9 @@ import authRouter from "./routes/auth.routes.js";
 import workflowRouter from "./routes/workflow.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
 
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger.js";
+
 import connectToDB from "./database/mongodb.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import arcjetMiddleware from "./middlewares/arcjet.middleware.js";
@@ -17,6 +20,9 @@ app.use(express.json()); //able to handle data sent as json format
 app.use(express.urlencoded({ extended: false })); //helps to handle form data sent as html in a simple format
 app.use(cookieParser()) // stores cookies from incoming requests so you can store cookie data
 app.use(arcjetMiddleware);
+
+// Swagger API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 //show which routes which we want to use.
 app.use('/api/v1/auth', authRouter);
