@@ -35,7 +35,7 @@ export const getSubscriptionsByUser = async (req, res, next) => {
         if(req.user._id.toString() !== req.params.id) { //object type is converted to string type with toString
 
             const error = new Error('You are not the owner of this account');
-            error.status = 401;
+            error.statusCode = 403;
             throw error;
         }
         const subscriptions = await Subscription.find({user: req.params.id});
@@ -54,7 +54,7 @@ export const updateSubscription = async (req, res, next) => {
         // check user is the same one in the token
         if(req.user._id.toString() !== req.params.id) {
             const error = new Error('You are not the owner of this account');
-            error.status = 401;
+            error.statusCode = 403;
             throw error;
         }
         // implement update subscription logic

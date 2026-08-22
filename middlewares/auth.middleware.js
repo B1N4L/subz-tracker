@@ -29,8 +29,7 @@ const authorize = async (req, res, next) => {
         res.status(401).json({
             message: "Not authorized",
             error: err.message
-        })
-        next(err);
+        });
     }
 }
 export default authorize;

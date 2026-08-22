@@ -13,7 +13,7 @@ const arcjetMiddleware = async (req, res, next) => {
             // if(decision.reason.isBot()){
             //     return res.status(403).json({error: 'Access denied: Bot found'})
             // }
-            res.status(403).json({error: 'Access Denied: suspicious activity found'})
+            return res.status(403).json({error: 'Access Denied: suspicious activity found'});
         }
 
         next();

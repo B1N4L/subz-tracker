@@ -14,7 +14,7 @@ export const  getUser = async (req, res, next) => {
         const user = await User.findById(req.params.id).select('-password'); //get all selected user's fields except password
         if (!user){
             const error = new Error('User not found');
-            error.status = 404;
+            error.statusCode = 404;
             throw error; //this is caught by our error handling middleware.
         }
         return res.status(200).json({success: true, data: user});
