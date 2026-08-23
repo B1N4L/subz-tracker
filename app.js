@@ -13,12 +13,15 @@ import swaggerSpec from "./config/swagger.js";
 import connectToDB from "./database/mongodb.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import arcjetMiddleware from "./middlewares/arcjet.middleware.js";
+import httpLoggerMiddleware from "./middlewares/httpLogger.middleware.js";
+import logger from "./config/logger.js";
 
 const app = express();
 
 app.use(express.json()); //able to handle data sent as json format
 app.use(express.urlencoded({ extended: false })); //helps to handle form data sent as html in a simple format
 app.use(cookieParser()) // stores cookies from incoming requests so you can store cookie data
+app.use(httpLoggerMiddleware); // HTTP access logging via Winston
 app.use(arcjetMiddleware);
 
 // Swagger API Documentation
@@ -38,7 +41,7 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-    console.log(`SubzTracker listening on port http://localhost:${PORT}`);
+    logger.info(`SubzTracker listening on port http://localhost:${PORT}`);
     //connect to the database
     await connectToDB();
 });

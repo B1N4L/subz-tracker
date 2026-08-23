@@ -1,5 +1,6 @@
 import Subscription from "../models/subscription.model.js";
 import dayjs from "dayjs";
+import logger from "../config/logger.js";
 
 //because workflow written in common js instead of ES6
 // app.js (or any .mjs / .js when "type":"module")
@@ -19,7 +20,7 @@ export const sendReminders = serve( async(context) => {
    const renewalDate = dayjs(subscription.renewalDate);
 
    if(renewalDate.isBefore(dayjs())){
-       console.log(`Renewal date has passed for subscription ${subscriptionId}. Stopping workflow...`);
+       logger.info(`Renewal date has passed for subscription ${subscriptionId}. Stopping workflow...`);
        return;
    }
 
@@ -47,13 +48,13 @@ const fetchSubscription = async (context, subscriptionId) => {
 }
 
 const sleepUntilReminder = async (context, label, date) => {
-    console.log(`Sleeping until ${label} reminder at ${date}...`);
+    logger.info(`Sleeping until ${label} reminder at ${date}...`);
     await context.sleepUntil(label, date.toDate());
 }
 
 const triggerReminder = async (context, label, subscription, reminder) => {
     return await context.run(label, async () => {
-        console.log(`Triggering ${label} reminder now`);
+        logger.info(`Triggering ${label} reminder now`);
 
         await sendReminderEmail({
             to: subscription.user.email,

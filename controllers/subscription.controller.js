@@ -1,6 +1,7 @@
 import Subscription from "../models/subscription.model.js";
 import { workflowClient } from "../config/upstash.js";
 import { SERVER_URL } from "../config/env.js";
+import logger from "../config/logger.js";
 
 export const createSubscription = async (req, res, next) => {
     try {
@@ -19,7 +20,7 @@ export const createSubscription = async (req, res, next) => {
             });
             workflowRunId = triggerResult.workflowRunId;
         } catch (wfErr) {
-            console.warn('Upstash workflow trigger skipped/failed:', wfErr.message);
+            logger.warn('Upstash workflow trigger skipped/failed:', { error: wfErr.message });
         }
 
         res.status(201).json({
