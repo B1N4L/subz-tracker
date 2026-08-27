@@ -25,6 +25,7 @@ export const createSubscriptionSchema = z.object({
             .or(z.date())
             .pipe(z.coerce.date()),
         renewalDate: z.string().or(z.date()).pipe(z.coerce.date()).optional(),
+        account: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid Account ID format').optional().nullable(),
     }),
 });
 
