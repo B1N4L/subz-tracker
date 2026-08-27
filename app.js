@@ -6,6 +6,7 @@ import userRouter from "./routes/user.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import workflowRouter from "./routes/workflow.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
+import accountRouter from "./routes/account.routes.js";
 
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swagger.js";
@@ -31,6 +32,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/user', userRouter);
 app.use('/api/v1/subscription', subscriptionRouter);
+app.use('/api/v1/account', accountRouter);
+app.use('/api/v1/accounts', accountRouter);
 app.use('/api/v1/workflow', workflowRouter);
 
 // custom middleware for error handling
