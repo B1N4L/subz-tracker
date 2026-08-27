@@ -7,7 +7,7 @@ const options = {
         info: {
             title: 'SubzTracker API',
             version: '1.0.0',
-            description: 'Subscription Management & Reminder REST API with JWT Auth, Arcjet Protection, and Upstash Workflows',
+            description: 'Subscription & Account Management REST API with JWT Auth, Arcjet Protection, and Upstash Workflows',
             contact: {
                 name: 'SubzTracker Support',
             },
@@ -38,6 +38,29 @@ const options = {
                         updatedAt: { type: 'string', format: 'date-time' },
                     },
                 },
+                Account: {
+                    type: 'object',
+                    properties: {
+                        _id: { type: 'string', example: '65a987654321fedcba543210' },
+                        serviceName: { type: 'string', example: 'Netflix' },
+                        username: { type: 'string', example: 'john.doe@gmail.com' },
+                        website: { type: 'string', example: 'https://netflix.com' },
+                        category: {
+                            type: 'string',
+                            enum: ['streaming', 'software', 'gaming', 'finance', 'social', 'utilities', 'productivity', 'cloud', 'other'],
+                            example: 'streaming',
+                        },
+                        tags: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            example: ['entertainment', 'family'],
+                        },
+                        notes: { type: 'string', example: 'Shared with family members' },
+                        user: { type: 'string', example: '65a123456789abcdef012345' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                    },
+                },
                 Subscription: {
                     type: 'object',
                     properties: {
@@ -52,6 +75,7 @@ const options = {
                         startDate: { type: 'string', format: 'date-time' },
                         renewalDate: { type: 'string', format: 'date-time' },
                         user: { type: 'string', example: '65a123456789abcdef012345' },
+                        account: { type: 'string', nullable: true, example: '65a987654321fedcba543210' },
                         createdAt: { type: 'string', format: 'date-time' },
                         updatedAt: { type: 'string', format: 'date-time' },
                     },
@@ -129,6 +153,89 @@ const options = {
                     },
                 },
             },
+            '/api/v1/account': {
+                get: {
+                    summary: 'Get all accounts for authenticated user',
+                    tags: ['Accounts'],
+                    security: [{ bearerAuth: [] }],
+                    parameters: [
+                        { name: 'category', in: 'query', schema: { type: 'string' } },
+                        { name: 'tag', in: 'query', schema: { type: 'string' } },
+                        { name: 'tags', in: 'query', schema: { type: 'string' } },
+                        { name: 'search', in: 'query', schema: { type: 'string' } },
+                        { name: 'serviceName', in: 'query', schema: { type: 'string' } },
+                        { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+                        { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
+                    ],
+                    responses: { 200: { description: 'Success' }, 401: { description: 'Unauthorized' } },
+                },
+                post: {
+                    summary: 'Create a new service account',
+                    tags: ['Accounts'],
+                    security: [{ bearerAuth: [] }],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    required: ['serviceName'],
+                                    properties: {
+                                        serviceName: { type: 'string', example: 'Netflix' },
+                                        username: { type: 'string', example: 'john.doe@gmail.com' },
+                                        website: { type: 'string', example: 'https://netflix.com' },
+                                        category: { type: 'string', example: 'streaming' },
+                                        tags: { type: 'array', items: { type: 'string' }, example: ['entertainment'] },
+                                        notes: { type: 'string', example: 'Personal account' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    responses: { 201: { description: 'Created' }, 400: { description: 'Validation Error' } },
+                },
+            },
+            '/api/v1/account/{id}': {
+                get: {
+                    summary: 'Get account by ID',
+                    tags: ['Accounts'],
+                    security: [{ bearerAuth: [] }],
+                    parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                    responses: { 200: { description: 'Success' }, 403: { description: 'Forbidden' }, 404: { description: 'Not Found' } },
+                },
+                put: {
+                    summary: 'Update account by ID',
+                    tags: ['Accounts'],
+                    security: [{ bearerAuth: [] }],
+                    parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        serviceName: { type: 'string', example: 'Netflix Updated' },
+                                        username: { type: 'string', example: 'john.new@gmail.com' },
+                                        website: { type: 'string', example: 'https://netflix.com' },
+                                        category: { type: 'string', example: 'streaming' },
+                                        tags: { type: 'array', items: { type: 'string' }, example: ['entertainment', 'shared'] },
+                                        notes: { type: 'string', example: 'Updated notes' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    responses: { 200: { description: 'Updated' }, 403: { description: 'Forbidden' }, 404: { description: 'Not Found' } },
+                },
+                delete: {
+                    summary: 'Delete account by ID',
+                    tags: ['Accounts'],
+                    security: [{ bearerAuth: [] }],
+                    parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                    responses: { 200: { description: 'Deleted' }, 403: { description: 'Forbidden' }, 404: { description: 'Not Found' } },
+                },
+            },
             '/api/v1/subscription': {
                 get: {
                     summary: 'Get all subscriptions for authenticated user',
@@ -159,6 +266,7 @@ const options = {
                                         category: { type: 'string', example: 'entertainment' },
                                         paymentMethod: { type: 'string', example: 'PayPal' },
                                         startDate: { type: 'string', format: 'date', example: '2026-08-01' },
+                                        account: { type: 'string', example: '65a987654321fedcba543210' },
                                     },
                                 },
                             },
