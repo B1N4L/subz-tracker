@@ -160,10 +160,11 @@ Base path: `/api/v1`
 - `DELETE /:id`: Delete subscription
 
 ### Accounts & Credentials (`/api/v1/account`) - Protected
-- `POST /`: Create external service account (e.g. Netflix, GitHub) with optional AES-256-GCM encrypted password
+- `POST /`: Create external service account (e.g. Netflix, GitHub) with optional AES-256-GCM encrypted password and rotation interval
 - `GET /`: List all service accounts for authenticated user (`?category=`, `?tag=`, `?search=`, `?page=`, `?limit=`)
+- `GET /stale-passwords`: Analyze password age and list accounts overdue or due soon for rotation (`?status=overdue|due_soon|healthy`)
 - `GET /:id`: Get account metadata (passwords and encrypted credentials strictly omitted)
-- `PUT /:id`: Update account details or update/remove password (`password: null` clears stored credential)
+- `PUT /:id`: Update account details, rotation interval, or update/remove password (`password: null` clears stored credential)
 - `PATCH /:id`: Partial account update
 - `DELETE /:id`: Delete account (safely unlinks any referenced subscriptions)
 - `POST /:id/reveal-password`: Securely decrypt and reveal account password in plaintext (Owner only, IDOR-protected)
@@ -177,3 +178,4 @@ Base path: `/api/v1`
 
 ### Workflows (`/api/v1/workflow`)
 - `POST /subscription/reminder`: Upstash workflow endpoint for scheduled 7, 5, 2, and 1-day email reminders.
+- `POST /account/password-reminder`: Upstash workflow endpoint for scheduled password rotation reminder emails (7 days before, due date, 14 days overdue).
