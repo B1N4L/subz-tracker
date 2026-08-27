@@ -159,6 +159,16 @@ Base path: `/api/v1`
 - `GET /upcoming-renewals`: Get subscriptions renewing in next $N$ days (`?days=7`)
 - `DELETE /:id`: Delete subscription
 
+### Accounts & Credentials (`/api/v1/account`) - Protected
+- `POST /`: Create external service account (e.g. Netflix, GitHub) with optional AES-256-GCM encrypted password
+- `GET /`: List all service accounts for authenticated user (`?category=`, `?tag=`, `?search=`, `?page=`, `?limit=`)
+- `GET /:id`: Get account metadata (passwords and encrypted credentials strictly omitted)
+- `PUT /:id`: Update account details or update/remove password (`password: null` clears stored credential)
+- `PATCH /:id`: Partial account update
+- `DELETE /:id`: Delete account (safely unlinks any referenced subscriptions)
+- `POST /:id/reveal-password`: Securely decrypt and reveal account password in plaintext (Owner only, IDOR-protected)
+- `GET /:id/password`: Alias for password revelation (Owner only)
+
 ### Users (`/api/v1/user`) - Protected
 - `GET /`: List all users (passwords omitted)
 - `GET /:id`: Get user profile by ID

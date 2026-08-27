@@ -12,6 +12,8 @@ import {
     getAccountById,
     updateAccount,
     deleteAccount,
+    revealAccountPassword,
+    getStalePasswordAccounts,
 } from "../controllers/account.controller.js";
 
 const accountRouter = Router();
@@ -22,6 +24,10 @@ accountRouter.use(authorize);
 accountRouter.get("/", getAllAccounts);
 accountRouter.post("/", validate(createAccountSchema), createAccount);
 
+// Rotation & security analytics endpoint (must be defined before /:id)
+accountRouter.get("/stale-passwords", getStalePasswordAccounts);
+
+// Single account routes
 accountRouter.get("/:id", validate(accountParamsSchema), getAccountById);
 accountRouter.put(
     "/:id",
@@ -36,5 +42,17 @@ accountRouter.patch(
     updateAccount
 );
 accountRouter.delete("/:id", validate(accountParamsSchema), deleteAccount);
+
+// Dedicated password reveal endpoints
+accountRouter.post(
+    "/:id/reveal-password",
+    validate(accountParamsSchema),
+    revealAccountPassword
+);
+accountRouter.get(
+    "/:id/password",
+    validate(accountParamsSchema),
+    revealAccountPassword
+);
 
 export default accountRouter;

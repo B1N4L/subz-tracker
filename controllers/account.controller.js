@@ -1,26 +1,67 @@
 import Account from "../models/account.model.js";
 import Subscription from "../models/subscription.model.js";
+import { encryptCredential, decryptCredential } from "../utils/crypto.js";
+import { workflowClient } from "../config/upstash.js";
+import { SERVER_URL } from "../config/env.js";
 import logger from "../config/logger.js";
+import dayjs from "dayjs";
 
 export const createAccount = async (req, res, next) => {
     try {
-        const { user, _id, ...accountData } = req.body;
+        const { user, _id, password, ...accountData } = req.body;
 
-        const account = await Account.create({
+        const newAccountPayload = {
             ...accountData,
             user: req.user._id,
-        });
+        };
+
+        const hasNewPassword =
+            password && typeof password === "string" && password.trim().length > 0;
+
+        // Encrypt password if provided
+        if (hasNewPassword) {
+            const encryptedData = encryptCredential(password);
+            newAccountPayload.credential = encryptedData;
+            newAccountPayload.hasPassword = true;
+            newAccountPayload.passwordLastChanged = new Date();
+        }
+
+        const account = await Account.create(newAccountPayload);
+
+        // Trigger password rotation reminder workflow if password was set and reminder enabled
+        if (hasNewPassword && account.rotationReminderEnabled) {
+            try {
+                await workflowClient.trigger({
+                    url: `${SERVER_URL}/api/v1/workflow/account/password-reminder`,
+                    body: {
+                        accountId: account.id,
+                        initialPasswordChangedAt: account.passwordLastChanged?.toISOString(),
+                    },
+                    headers: { "Content-Type": "application/json" },
+                    retries: 0,
+                });
+            } catch (wfErr) {
+                logger.warn("Upstash password rotation workflow trigger skipped/failed:", {
+                    error: wfErr.message,
+                });
+            }
+        }
 
         logger.info("Account created successfully", {
             accountId: account._id,
             userId: req.user._id,
             serviceName: account.serviceName,
+            hasPassword: account.hasPassword,
         });
+
+        // Ensure password is not present in returned data
+        const responseData = account.toObject();
+        delete responseData.credential;
 
         res.status(201).json({
             success: true,
             message: "Account created successfully",
-            data: account,
+            data: responseData,
         });
     } catch (err) {
         next(err);
@@ -134,20 +175,64 @@ export const updateAccount = async (req, res, next) => {
             throw error;
         }
 
-        // Prevent client from changing ownership or document ID
-        const { user, _id, ...updateFields } = req.body;
+        // Prevent client from changing ownership, document ID, or injecting raw credentials
+        const { user, _id, credential, password, ...updateFields } = req.body;
         Object.assign(account, updateFields);
+
+        let passwordWasUpdated = false;
+
+        // Handle password update
+        if (typeof password === "string" && password.trim().length > 0) {
+            account.credential = encryptCredential(password);
+            account.hasPassword = true;
+            account.passwordLastChanged = new Date();
+            passwordWasUpdated = true;
+        } else if (password === null || password === "") {
+            // Explicitly clear password if requested
+            account.credential = {
+                encryptedPassword: null,
+                iv: null,
+                authTag: null,
+            };
+            account.hasPassword = false;
+            account.passwordLastChanged = null;
+        }
+
         await account.save();
+
+        // Trigger new password rotation workflow if password was updated
+        if (passwordWasUpdated && account.rotationReminderEnabled) {
+            try {
+                await workflowClient.trigger({
+                    url: `${SERVER_URL}/api/v1/workflow/account/password-reminder`,
+                    body: {
+                        accountId: account.id,
+                        initialPasswordChangedAt: account.passwordLastChanged?.toISOString(),
+                    },
+                    headers: { "Content-Type": "application/json" },
+                    retries: 0,
+                });
+            } catch (wfErr) {
+                logger.warn("Upstash password rotation workflow trigger skipped/failed:", {
+                    error: wfErr.message,
+                });
+            }
+        }
 
         logger.info("Account updated successfully", {
             accountId: account._id,
             userId: req.user._id,
+            hasPassword: account.hasPassword,
         });
+
+        // Ensure credential subdocument is stripped from the response
+        const responseData = account.toObject();
+        delete responseData.credential;
 
         res.status(200).json({
             success: true,
             message: "Account updated successfully",
-            data: account,
+            data: responseData,
         });
     } catch (err) {
         next(err);
@@ -187,6 +272,130 @@ export const deleteAccount = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: "Account deleted successfully",
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * Dedicated endpoint to securely decrypt and reveal an Account password
+ * Accessible only by the authenticated account owner
+ */
+export const revealAccountPassword = async (req, res, next) => {
+    try {
+        // Explicitly select the hidden credential subdocument
+        const account = await Account.findById(req.params.id).select(
+            "+credential.encryptedPassword +credential.iv +credential.authTag +credential.keyVersion"
+        );
+
+        if (!account) {
+            const error = new Error("Account not found");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        // Server-side authorization check (IDOR prevention)
+        if (account.user.toString() !== req.user._id.toString()) {
+            const error = new Error("You are not authorized to view credentials for this account");
+            error.statusCode = 403;
+            throw error;
+        }
+
+        if (
+            !account.hasPassword ||
+            !account.credential ||
+            !account.credential.encryptedPassword
+        ) {
+            const error = new Error("No password stored for this account");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        let decryptedPassword;
+        try {
+            decryptedPassword = decryptCredential(account.credential);
+        } catch (decryptErr) {
+            logger.error("Failed to decrypt account credential", {
+                accountId: account._id,
+                userId: req.user._id,
+                error: decryptErr.message,
+            });
+            const error = new Error("Unable to decrypt account credential");
+            error.statusCode = 500;
+            throw error;
+        }
+
+        logger.info("Account password revealed successfully", {
+            accountId: account._id,
+            userId: req.user._id,
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                _id: account._id,
+                serviceName: account.serviceName,
+                username: account.username,
+                password: decryptedPassword,
+                passwordLastChanged: account.passwordLastChanged,
+                passwordRotationIntervalDays: account.passwordRotationIntervalDays,
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * Retrieves accounts with stale/due passwords for the authenticated user
+ */
+export const getStalePasswordAccounts = async (req, res, next) => {
+    try {
+        const accounts = await Account.find({
+            user: req.user._id,
+            hasPassword: true,
+        }).sort({ passwordLastChanged: 1 });
+
+        const now = dayjs();
+        const analyzed = accounts.map((acc) => {
+            const lastChanged = dayjs(acc.passwordLastChanged || acc.createdAt);
+            const intervalDays = acc.passwordRotationIntervalDays || 90;
+            const dueDate = lastChanged.add(intervalDays, "day");
+            const daysSinceChanged = now.diff(lastChanged, "day");
+            const daysUntilDue = dueDate.diff(now, "day");
+            const isOverdue = daysUntilDue < 0;
+            const isDueSoon = daysUntilDue >= 0 && daysUntilDue <= 7;
+
+            return {
+                _id: acc._id,
+                serviceName: acc.serviceName,
+                username: acc.username,
+                category: acc.category,
+                passwordLastChanged: acc.passwordLastChanged,
+                passwordRotationIntervalDays: intervalDays,
+                rotationReminderEnabled: acc.rotationReminderEnabled,
+                lastRotationReminderSent: acc.lastRotationReminderSent,
+                dueDate: dueDate.toISOString(),
+                daysSinceChanged,
+                daysUntilDue,
+                status: isOverdue ? "overdue" : isDueSoon ? "due_soon" : "healthy",
+            };
+        });
+
+        // Filter by status if requested (?status=overdue or ?status=due_soon)
+        const filterStatus = req.query.status?.toLowerCase();
+        const filtered = filterStatus
+            ? analyzed.filter((a) => a.status === filterStatus)
+            : analyzed;
+
+        res.status(200).json({
+            success: true,
+            count: filtered.length,
+            totalAccountsWithPasswords: accounts.length,
+            overdueCount: analyzed.filter((a) => a.status === "overdue").length,
+            dueSoonCount: analyzed.filter((a) => a.status === "due_soon").length,
+            data: filtered,
         });
     } catch (err) {
         next(err);

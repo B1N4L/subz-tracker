@@ -55,6 +55,19 @@ export const createAccountSchema = z.object({
                 .max(1000, "Notes must not exceed 1000 characters")
                 .optional()
                 .default(""),
+            password: z
+                .string()
+                .min(1, "Password cannot be empty")
+                .max(255, "Password must not exceed 255 characters")
+                .optional(),
+            passwordRotationIntervalDays: z
+                .number()
+                .int("Rotation interval must be an integer")
+                .min(7, "Minimum rotation interval is 7 days")
+                .max(365, "Maximum rotation interval is 365 days")
+                .optional()
+                .default(90),
+            rotationReminderEnabled: z.boolean().optional().default(true),
         })
         .strict({ message: "Unexpected field provided in request body" }),
 });
@@ -106,6 +119,19 @@ export const updateAccountSchema = z.object({
                 .trim()
                 .max(1000, "Notes must not exceed 1000 characters")
                 .optional(),
+            password: z
+                .string()
+                .min(1, "Password cannot be empty")
+                .max(255, "Password must not exceed 255 characters")
+                .optional()
+                .nullable(),
+            passwordRotationIntervalDays: z
+                .number()
+                .int("Rotation interval must be an integer")
+                .min(7, "Minimum rotation interval is 7 days")
+                .max(365, "Maximum rotation interval is 365 days")
+                .optional(),
+            rotationReminderEnabled: z.boolean().optional(),
         })
         .strict({ message: "Unexpected field provided in request body" }),
 });

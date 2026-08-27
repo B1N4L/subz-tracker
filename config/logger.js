@@ -20,6 +20,12 @@ const SENSITIVE_KEYS = [
     'cvv',
     'cardnumber',
     'card_number',
+    'encryptedpassword',
+    'encrypted_password',
+    'authtag',
+    'auth_tag',
+    'credential',
+    'credentials',
 ];
 
 /**

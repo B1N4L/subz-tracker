@@ -56,6 +56,11 @@ const options = {
                             example: ['entertainment', 'family'],
                         },
                         notes: { type: 'string', example: 'Shared with family members' },
+                        hasPassword: { type: 'boolean', example: true },
+                        passwordLastChanged: { type: 'string', format: 'date-time', nullable: true },
+                        passwordRotationIntervalDays: { type: 'integer', example: 90 },
+                        rotationReminderEnabled: { type: 'boolean', example: true },
+                        lastRotationReminderSent: { type: 'string', format: 'date-time', nullable: true },
                         user: { type: 'string', example: '65a123456789abcdef012345' },
                         createdAt: { type: 'string', format: 'date-time' },
                         updatedAt: { type: 'string', format: 'date-time' },
@@ -180,9 +185,10 @@ const options = {
                                 schema: {
                                     type: 'object',
                                     required: ['serviceName'],
-                                    properties: {
+                                     properties: {
                                         serviceName: { type: 'string', example: 'Netflix' },
                                         username: { type: 'string', example: 'john.doe@gmail.com' },
+                                        password: { type: 'string', example: 'MySecretPassword123!' },
                                         website: { type: 'string', example: 'https://netflix.com' },
                                         category: { type: 'string', example: 'streaming' },
                                         tags: { type: 'array', items: { type: 'string' }, example: ['entertainment'] },
@@ -193,6 +199,22 @@ const options = {
                         },
                     },
                     responses: { 201: { description: 'Created' }, 400: { description: 'Validation Error' } },
+                },
+            },
+            '/api/v1/account/stale-passwords': {
+                get: {
+                    summary: 'Get accounts with stale or due passwords for rotation',
+                    tags: ['Accounts'],
+                    security: [{ bearerAuth: [] }],
+                    parameters: [
+                        { name: 'status', in: 'query', schema: { type: 'string', enum: ['overdue', 'due_soon', 'healthy'] } },
+                    ],
+                    responses: {
+                        200: {
+                            description: 'List of accounts with rotation status analysis',
+                        },
+                        401: { description: 'Unauthorized' },
+                    },
                 },
             },
             '/api/v1/account/{id}': {
@@ -217,6 +239,7 @@ const options = {
                                     properties: {
                                         serviceName: { type: 'string', example: 'Netflix Updated' },
                                         username: { type: 'string', example: 'john.new@gmail.com' },
+                                        password: { type: 'string', example: 'NewSecretPassword123!' },
                                         website: { type: 'string', example: 'https://netflix.com' },
                                         category: { type: 'string', example: 'streaming' },
                                         tags: { type: 'array', items: { type: 'string' }, example: ['entertainment', 'shared'] },
@@ -234,6 +257,41 @@ const options = {
                     security: [{ bearerAuth: [] }],
                     parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                     responses: { 200: { description: 'Deleted' }, 403: { description: 'Forbidden' }, 404: { description: 'Not Found' } },
+                },
+            },
+            '/api/v1/account/{id}/reveal-password': {
+                post: {
+                    summary: 'Securely decrypt and reveal account password (Owner only)',
+                    tags: ['Accounts'],
+                    security: [{ bearerAuth: [] }],
+                    parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+                    responses: {
+                        200: {
+                            description: 'Password decrypted successfully',
+                            content: {
+                                'application/json': {
+                                    schema: {
+                                        type: 'object',
+                                        properties: {
+                                            success: { type: 'boolean', example: true },
+                                            data: {
+                                                type: 'object',
+                                                properties: {
+                                                    _id: { type: 'string' },
+                                                    serviceName: { type: 'string', example: 'Netflix' },
+                                                    username: { type: 'string', example: 'john.doe@gmail.com' },
+                                                    password: { type: 'string', example: 'MySecretPassword123!' },
+                                                    passwordLastChanged: { type: 'string', format: 'date-time' },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        403: { description: 'Forbidden (IDOR protection)' },
+                        404: { description: 'Account or password not found' },
+                    },
                 },
             },
             '/api/v1/subscription': {
@@ -347,6 +405,48 @@ const options = {
                     security: [{ bearerAuth: [] }],
                     parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
                     responses: { 200: { description: 'Deleted' } },
+                },
+            },
+            '/api/v1/workflow/account/password-reminder': {
+                post: {
+                    summary: 'Upstash workflow trigger for Account Password Rotation reminders',
+                    tags: ['Workflows'],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    required: ['accountId'],
+                                    properties: {
+                                        accountId: { type: 'string', example: '65a987654321fedcba543210' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    responses: { 200: { description: 'Workflow executed' } },
+                },
+            },
+            '/api/v1/workflow/subscription/reminder': {
+                post: {
+                    summary: 'Upstash workflow trigger for Subscription Renewal reminders',
+                    tags: ['Workflows'],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    required: ['subscriptionId'],
+                                    properties: {
+                                        subscriptionId: { type: 'string', example: '65a987654321fedcba543210' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    responses: { 200: { description: 'Workflow executed' } },
                 },
             },
         },

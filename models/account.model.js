@@ -60,6 +60,50 @@ const accountSchema = new mongoose.Schema(
             maxlength: 1000,
             default: "",
         },
+        hasPassword: {
+            type: Boolean,
+            default: false,
+        },
+        passwordLastChanged: {
+            type: Date,
+            default: null,
+        },
+        passwordRotationIntervalDays: {
+            type: Number,
+            default: 90,
+            min: 7,
+            max: 365,
+        },
+        rotationReminderEnabled: {
+            type: Boolean,
+            default: true,
+        },
+        lastRotationReminderSent: {
+            type: Date,
+            default: null,
+        },
+        credential: {
+            encryptedPassword: {
+                type: String,
+                select: false,
+                default: null,
+            },
+            iv: {
+                type: String,
+                select: false,
+                default: null,
+            },
+            authTag: {
+                type: String,
+                select: false,
+                default: null,
+            },
+            keyVersion: {
+                type: Number,
+                select: false,
+                default: 1,
+            },
+        },
     },
     { timestamps: true }
 );
