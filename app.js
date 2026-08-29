@@ -1,68 +1,69 @@
 import express from "express";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import cors from "cors";
+import corsOptions from "./config/cors.js";
 
-import {PORT} from "./config/env.js";
 import userRouter from "./routes/user.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import workflowRouter from "./routes/workflow.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
+import accountRouter from "./routes/account.routes.js";
 
-import connectToDB from "./database/mongodb.js";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger.js";
+
 import errorMiddleware from "./middlewares/error.middleware.js";
 import arcjetMiddleware from "./middlewares/arcjet.middleware.js";
+import httpLoggerMiddleware from "./middlewares/httpLogger.middleware.js";
 
 const app = express();
 
-app.use(express.json()); //able to handle data sent as json format
-app.use(express.urlencoded({ extended: false })); //helps to handle form data sent as html in a simple format
-app.use(cookieParser()) // stores cookies from incoming requests so you can store cookie data
+// Security HTTP headers (Helmet)
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", "'unsafe-inline'"],
+                styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+                imgSrc: ["'self'", "data:", "https:"],
+                connectSrc: ["'self'"],
+                fontSrc: ["'self'", "https:", "data:"],
+                objectSrc: ["'none'"],
+                upgradeInsecureRequests: [],
+            },
+        },
+        crossOriginEmbedderPolicy: false,
+    })
+);
+
+// Cross-Origin Resource Sharing (CORS)
+app.use(cors(corsOptions));
+
+app.use(express.json()); // able to handle data sent as json format
+app.use(express.urlencoded({ extended: false })); // helps to handle form data sent as html in a simple format
+app.use(cookieParser()); // stores cookies from incoming requests so you can store cookie data
+app.use(httpLoggerMiddleware); // HTTP access logging via Winston
 app.use(arcjetMiddleware);
 
-//show which routes which we want to use.
+// Swagger API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Show which routes we want to use
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/user', userRouter);
 app.use('/api/v1/subscription', subscriptionRouter);
+app.use('/api/v1/account', accountRouter);
+app.use('/api/v1/accounts', accountRouter);
 app.use('/api/v1/workflow', workflowRouter);
 
-// custom middleware for error handling
+// Root greeting endpoint
+app.get('/', (req, res) => {
+    res.send({ body: "welcome to api" });
+});
+
+// Custom middleware for error handling
 app.use(errorMiddleware);
 
-app.get('/', (req, res) => {
-    res.send({body:"welcome to api"});
-});
-
-app.listen(PORT, async () => {
-    console.log(`SubzTracker listening on port http://localhost:${PORT}`);
-    //connect to the database
-    await connectToDB();
-});
-
 export default app;
-//console.log("server started");
-//
-//
-// import express from "express";
-// import {PORT} from "./config/env.js";
-// import connectToDB from "./database/mongodb.js";
-//
-// const app = express();
-//
-// app.get('/user/:id', (req, res, next) => {
-//     if (req.params.id === '0') {
-//         return next('route')
-//     }
-//     res.send(`User ${req.params.id}`)
-// })
-//
-// app.get('/user/:id', (req, res) => {
-//     res.send('Special handler for user ID 0')
-// })
-//
-// app.listen(PORT, async () => {
-//     console.log(`SubzTracker listening on port http://localhost:${PORT}`);
-//     //connect to the database
-//     await connectToDB();
-// });
-//
-// export default app;
-// //console.log("server started");

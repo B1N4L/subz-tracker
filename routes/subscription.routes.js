@@ -1,48 +1,33 @@
-import {Router} from "express";
+import { Router } from "express";
 import authorize from "../middlewares/auth.middleware.js";
-import {createSubscription, getSubscriptionsByUser} from "../controllers/subscription.controller.js";
+import { validate } from "../middlewares/validation.middleware.js";
+import { createSubscriptionSchema, updateSubscriptionSchema } from "../schemas/subscription.schema.js";
+import {
+    createSubscription,
+    getAllSubscriptions,
+    getSubscriptionById,
+    getSubscriptionsByUser,
+    updateSubscription,
+    cancelSubscription,
+    deleteSubscription,
+    getUpcomingRenewals,
+} from "../controllers/subscription.controller.js";
 
 const subscriptionRouter = Router();
 
-subscriptionRouter.get("/", (req, res) => {
-    res.send({
-        title: "GET all subscriptions",
-    })
-});
+// Protect all subscription routes with authorization
+subscriptionRouter.use(authorize);
 
-subscriptionRouter.get("/:id", (req, res) => {
-    res.send({
-        title: "GET subscription by Id  ",
-    })
-});
+// Static/specific endpoints (defined BEFORE /:id wildcard)
+subscriptionRouter.get("/", getAllSubscriptions);
+subscriptionRouter.post("/", validate(createSubscriptionSchema), createSubscription);
+subscriptionRouter.get("/upcoming-renewals", getUpcomingRenewals);
+subscriptionRouter.get("/user/:id", getSubscriptionsByUser);
 
-subscriptionRouter.post("/", authorize, createSubscription);
-
-subscriptionRouter.put("/:id", (req, res) => {
-    res.send({
-        title: "UPDATE subscription",
-    })
-});
-
-subscriptionRouter.delete("/:id", (req, res) => {
-    res.send({
-        title: "DELETE subscription",
-    })
-});
-
-
-subscriptionRouter.get("/user/:id", authorize, getSubscriptionsByUser);
-
-subscriptionRouter.put("/:id/cancel", (req, res) => {
-    res.send({
-        title: "CANCEL subscription",
-    })
-});
-
-subscriptionRouter.get("/upcoming-renewals", (req, res) => {
-    res.send({
-        title: "GET upcoming renewals",
-    })
-});
+// Parametric endpoints (/:id)
+subscriptionRouter.get("/:id", getSubscriptionById);
+subscriptionRouter.put("/:id", validate(updateSubscriptionSchema), updateSubscription);
+subscriptionRouter.put("/:id/cancel", cancelSubscription);
+subscriptionRouter.delete("/:id", deleteSubscription);
 
 export default subscriptionRouter;

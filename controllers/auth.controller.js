@@ -19,7 +19,7 @@ export const signUp = async (req, res, next) => {
         const existingUser = await User.findOne({ email }); //returns bool
         if (existingUser){
             const error = new Error("User already exists");
-            error.status = 409;
+            error.statusCode = 409;
             throw error;
         }
 
@@ -35,14 +35,16 @@ export const signUp = async (req, res, next) => {
 
         // if nothing goes wrong till here at the end of the try block, that means we can successfully complete the transaction(create user).
 
-        // creating a token?
-        const token = jwt.sign({userId: newUsers[0]._id}, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
+        const userObj = newUsers[0].toObject();
+        delete userObj.password;
+
+        const token = jwt.sign({userId: userObj._id}, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
         await session.commitTransaction();
         session.endSession();
         res.status(201).json({
             success: true,
             message: "User created successfully",
-            data: { token, user: newUsers[0] }
+            data: { token, user: userObj }
         })
     }catch(error){
         // if anything goes wrong, abort transaction with the database
@@ -68,11 +70,15 @@ export const signIn = async (req, res, next) => {
             error.statusCode = 401; //unauthorized
             throw error;
         }
+
+        const userObj = user.toObject();
+        delete userObj.password;
+
         const token = jwt.sign({userId: user._id}, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
-        res.status(201).json({
+        res.status(200).json({
             success: true,
             message: "User logged in successfully",
-            data: { token, user }
+            data: { token, user: userObj }
         })
     }catch(error){
         next(error);
@@ -81,6 +87,13 @@ export const signIn = async (req, res, next) => {
 }
 
 export const signOut = async (req, res, next) => {
-    // signOut logic implementation
-
+    try {
+        res.clearCookie('token');
+        res.status(200).json({
+            success: true,
+            message: "User logged out successfully"
+        });
+    } catch(error) {
+        next(error);
+    }
 }

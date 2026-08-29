@@ -71,10 +71,19 @@ const subscriptionSchema = mongoose.Schema({
 
     //user who is subscribed
     user: {
-    type: mongoose.Schema.Types.ObjectId, //user will be a reference to the user model
-    ref: "User",
-    required: [true, 'subscribed user is required'],
-    index: true, //optimize queries to by indexing the user field
+        type: mongoose.Schema.Types.ObjectId, //user will be a reference to the user model
+        ref: "User",
+        required: [true, 'subscribed user is required'],
+        index: true, //optimize queries to by indexing the user field
+    },
+
+    // optional external account reference
+    account: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Account",
+        required: false,
+        default: null,
+        index: true,
     }
 }, {timestamps: true});
 

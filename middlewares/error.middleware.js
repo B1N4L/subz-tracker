@@ -1,12 +1,19 @@
+import logger from '../config/logger.js';
+
 // err: information that happened before the request
 // next: what happens after when you're ready to proceed to the next step
 const errorMiddleware = (err, req, res, next) => {
     try {
-        console.error(err);
-
-        let statusCode = err.statusCode || 500;
+        let statusCode = err.statusCode || err.status || 500;
         let message = err.message || "Internal server error";
         let errors = null;
+
+        logger.error(message, {
+            stack: err.stack,
+            statusCode,
+            method: req.method,
+            path: req.originalUrl || req.url,
+        });
 
         // Mongoose bad ObjectId
         if (err.name === "CastError") {

@@ -1,366 +1,223 @@
-# SubMgr
+# SubzTracker (SubMgr)
 
-SubMgr is a Node.js/Express backend for subscription management with authentication, user/account access, subscription creation, and scheduled renewal reminder workflows.
+SubzTracker is a Node.js/Express backend for subscription tracking with JWT authentication, user management, full subscription lifecycle CRUD, automated renewal reminder workflows via Upstash & Nodemailer, Zod payload validation, Winston unified logging, and interactive Swagger UI documentation.
 
 ## Technical Overview
 
-- Runtime: Node.js with ES modules (`"type": "module"`)
-- API framework: Express
-- Database: MongoDB with Mongoose
-- Auth: JWT bearer tokens
-- Request protection: Arcjet (`shield`, bot detection, token-bucket rate limiting)
-- Background orchestration: Upstash Workflow
-- Email delivery: Nodemailer (Gmail transporter)
+- **Runtime**: Node.js with ES modules (`"type": "module"`)
+- **API Framework**: Express
+- **Database & ODM**: MongoDB with Mongoose
+- **Authentication**: JWT bearer tokens (`jsonwebtoken`) + `bcryptjs`
+- **Validation**: Zod schema validation
+- **Logging**: Winston (application & HTTP access logging with sensitive data redaction)
+- **API Documentation**: Swagger UI / OpenAPI 3.0 at `/api-docs`
+- **Request Protection**: Arcjet (`shield`, bot detection, token-bucket rate limiting)
+- **Background Orchestration**: Upstash Workflow (`@upstash/workflow`)
+- **Email Delivery**: Nodemailer (Gmail transporter)
 
 ## Architecture
 
-- `app.js` wires middleware, route groups, error handling, and server startup.
-- `controllers/` contains request handlers for auth, users, subscriptions, and workflows.
-- `models/` defines Mongoose schemas (`User`, `Subscription`).
-- `middlewares/` handles auth, Arcjet protection, and centralized error responses.
-- `config/` holds env loading, Arcjet setup, Upstash client, and mail transporter.
-- `utils/` contains email template and send utilities.
+- `app.js`: Wires middleware, HTTP access logger, route groups, Swagger UI, error handling, and server startup.
+- `config/`: Holds environment configuration (`env.js`), Winston logger (`logger.js`), Swagger definition (`swagger.js`), Arcjet (`arcjet.js`), Upstash (`upstash.js`), and Nodemailer (`nodemailer.js`).
+- `controllers/`: Request handlers for authentication, users, subscriptions, and workflows.
+- `models/`: Mongoose schemas (`User`, `Subscription`).
+- `middlewares/`: JWT authorization (`auth.middleware.js`), Winston HTTP access logger (`httpLogger.middleware.js`), Zod request validator (`validation.middleware.js`), Arcjet bot/rate limit protection (`arcjet.middleware.js`), and centralized error responses (`error.middleware.js`).
+- `schemas/`: Zod request validation schemas (`auth.schema.js`, `subscription.schema.js`, `user.schema.js`).
+- `utils/`: Email templates and dispatch helpers.
 
-## Setup
+---
 
-### 1) Install dependencies
+## Setup & Configuration
+
+### 1) Install Dependencies
 
 ```powershell
 npm install
 ```
 
-### 2) Configure environment
+### 2) Environment Configuration
 
-The app loads env from:
-
-- `.env.development.local` when `NODE_ENV` is not set
+The app loads environment variables from:
+- `.env.development.local` when `NODE_ENV` is not set or set to `development`
 - `.env.<NODE_ENV>.local` otherwise
 
-Required variables (from `config/env.js`):
+Required variables (defined in `config/env.js`):
 
-- `PORT`
-- `SERVER_URL`
-- `NODE_ENV`
-- `DB_URI`
-- `JWT_SECRET`
-- `JWT_EXPIRES_IN`
-- `ARCJET_KEY`
-- `ARCJET_ENV`
-- `QSTASH_URL`
-- `QSTASH_TOKEN`
-- `EMAIL_PASSWORD`
+```dotenv
+PORT=5500
+SERVER_URL="http://localhost:5500"
+NODE_ENV="development"
+DB_URI="mongodb+srv://..."
+JWT_SECRET="your_jwt_secret"
+JWT_EXPIRES_IN="10d"
+ARCJET_KEY="ajkey_..."
+ARCJET_ENV="development"
+QSTASH_URL="http://127.0.0.1:8080"
+QSTASH_TOKEN="..."
+EMAIL_USER="your-email@gmail.com"
+EMAIL_PASSWORD="your-app-password"
+LOG_LEVEL="debug" # optional: debug, info, warn, error, http
+```
 
 ### 3) Run the API
 
+Development mode (with nodemon):
 ```powershell
 npm run dev
 ```
 
 Production mode:
-
 ```powershell
 npm start
 ```
+
+---
+
+## Logging with Winston
+
+Winston is the unified logging solution for both **application logs** and **HTTP request/access logs**, replacing Morgan and ad-hoc console statements.
+
+### Development vs. Production Behavior
+
+| Feature | Development Mode (`NODE_ENV=development`) | Production Mode (`NODE_ENV=production`) |
+| :--- | :--- | :--- |
+| **Output Format** | Human-readable, colorized terminal output with timestamp | Structured JSON format for log aggregators |
+| **Default Log Level** | `debug` (verbose) | `info` (clean and concise) |
+| **Error Stacks** | Printed directly in console with full stack trace | Serialized into structured JSON `stack` property |
+| **Transports** | Console (`stdout` / `stderr`) | Console (`stdout`) + `logs/error.log` + `logs/combined.log` |
+
+### Available Log Levels
+
+Winston uses standard npm logging levels (ordered by severity):
+- `error` (0): Critical failures, database errors, unhandled exceptions
+- `warn` (1): Suspicious requests, rate-limits, workflow warning fallbacks
+- `info` (2): Server lifecycle events, database connections, email dispatches
+- `http` (3): Incoming HTTP access logs with duration, status, IP, and method
+- `verbose` (4): Detailed step execution
+- `debug` (5): Arcjet decision conclusion details, diagnostic data
+
+To override the default level in any environment, set the `LOG_LEVEL` environment variable:
+```dotenv
+LOG_LEVEL=info
+```
+
+### HTTP Request / Access Logging
+
+The `httpLoggerMiddleware` captures all incoming Express requests upon response completion (`res.on('finish')`):
+- **Method & Path**: `GET /api/v1/subscription`
+- **Status Code**: `200`, `401`, `500`, etc. (Status >= 500 logs as `error`, >= 400 logs as `warn`, others as `http`)
+- **Duration**: Response time in milliseconds (e.g., `14.25ms`)
+- **Metadata**: Client IP address and User-Agent
+- **No duplicates**: Emitted exactly once per request cycle
+
+### Sensitive Data Redaction
+
+The logging system automatically redacts sensitive data from metadata and request logs. Any key containing:
+- `password`, `pass`, `token`, `jwt`, `secret`, `authorization`, `cookie`, `cookies`, `apiKey`, `creditCard`, `cvv`
+is masked as `[REDACTED]` to prevent credential leaks.
+
+### How to Use the Logger in Application Modules
+
+Import the centralized logger instance:
+
+```javascript
+import logger from './config/logger.js';
+
+// Logging messages
+logger.info('Subscription created', { subscriptionId: sub._id, user: req.user._id });
+logger.debug('Diagnostic info', { details: 'step 1 finished' });
+logger.warn('Resource nearing quota', { usage: 95 });
+logger.error('Failed to process payment', { error: err.message, stack: err.stack });
+```
+
+---
+
+## API Documentation (Swagger UI)
+
+Interactive Swagger UI documentation is available at:
+👉 **`http://localhost:5500/api-docs`**
+
+Use Swagger UI to test endpoints, supply Bearer tokens via the **Authorize** button, and inspect schemas.
+
+---
 
 ## API Surface
 
 Base path: `/api/v1`
 
-Auth-protected endpoints require:
+### Authentication (`/api/v1/auth`)
+- `POST /sign-up`: Register new user (validated with Zod, returns JWT, password stripped)
+- `POST /sign-in`: Authenticate user (validated with Zod, returns JWT, password stripped)
+- `POST /sign-out`: Clears auth cookies and ends session
 
-- `Authorization: Bearer <token>`
+### Subscriptions (`/api/v1/subscription`) - Protected
+- `POST /`: Create subscription (triggers Upstash renewal reminder workflow)
+- `GET /`: List all subscriptions for authenticated user (supports `?category=` and `?status=` filters)
+- `GET /:id`: Get subscription by ID (with ownership check)
+- `PUT /:id`: Update subscription details
+- `PUT /:id/cancel`: Cancel subscription (`status = 'canceled'`)
+- `GET /upcoming-renewals`: Get subscriptions renewing in next $N$ days (`?days=7`)
+- `DELETE /:id`: Delete subscription
 
-### Auth APIs
+### Accounts & Credentials (`/api/v1/account`) - Protected
+- `POST /`: Create external service account (e.g. Netflix, GitHub) with optional AES-256-GCM encrypted password and rotation interval
+- `GET /`: List all service accounts for authenticated user (`?category=`, `?tag=`, `?search=`, `?page=`, `?limit=`)
+- `GET /stale-passwords`: Analyze password age and list accounts overdue or due soon for rotation (`?status=overdue|due_soon|healthy`)
+- `GET /:id`: Get account metadata (passwords and encrypted credentials strictly omitted)
+- `PUT /:id`: Update account details, rotation interval, or update/remove password (`password: null` clears stored credential)
+- `PATCH /:id`: Partial account update
+- `DELETE /:id`: Delete account (safely unlinks any referenced subscriptions)
+- `POST /:id/reveal-password`: Securely decrypt and reveal account password in plaintext (Owner only, IDOR-protected)
+- `GET /:id/password`: Alias for password revelation (Owner only)
 
-#### `POST /api/v1/auth/sign-up`
+### Users (`/api/v1/user`) - Protected
+- `GET /`: List all users (passwords omitted)
+- `GET /:id`: Get user profile by ID
+- `PUT /:id`: Update user profile (with ownership check)
+- `DELETE /:id`: Delete user account and all associated subscriptions
 
-Request:
+### Workflows (`/api/v1/workflow`)
+- `POST /subscription/reminder`: Upstash workflow endpoint for scheduled 7, 5, 2, and 1-day email reminders.
+- `POST /account/password-reminder`: Upstash workflow endpoint for scheduled password rotation reminder emails (7 days before, due date, 14 days overdue).
 
-```json
-{
-  "name": "Alex Doe",
-  "email": "alex@example.com",
-  "password": "securePass123"
-}
+---
+
+## Testing Infrastructure
+
+The project uses **Vitest** and **Supertest** for fast, in-memory unit and integration testing without requiring an external server process.
+
+```bash
+# Run full test suite (55 tests)
+npm test
+
+# Run unit tests only (crypto, logger sanitization, email templates)
+npm run test:unit
+
+# Run integration tests only (auth, users, subscriptions, accounts, credentials, rotation)
+npm run test:integration
+
+# Run in interactive watch mode
+npm run test:watch
+
+# Generate code coverage report
+npm run test:coverage
 ```
 
-Success response (`201`):
-
-```json
-{
-  "success": true,
-  "message": "User created successfully",
-  "data": {
-    "token": "<jwt>",
-    "user": {
-      "_id": "<userId>",
-      "name": "Alex Doe",
-      "email": "alex@example.com"
-    }
-  }
-}
+### Test Directory Structure
 ```
-
-#### `POST /api/v1/auth/sign-in`
-
-Request:
-
-```json
-{
-  "email": "alex@example.com",
-  "password": "securePass123"
-}
+tests/
+├── unit/
+│   ├── crypto.test.js           # AES-256-GCM authenticated encryption & tampering tests
+│   ├── logger.test.js           # Sensitive data recursive redaction tests
+│   └── emailTemplate.test.js    # Subscription & Password rotation email templates
+├── integration/
+│   ├── auth.test.js             # Sign-up, Sign-in, Sign-out, validation barriers
+│   ├── user.test.js             # User profiles, IDOR barriers, account deletion
+│   ├── subscription.test.js     # Subscription CRUD, renewals, cancellation
+│   ├── account.test.js          # Account CRUD, category/tag filtering, search, IDOR
+│   ├── credential.test.js       # AES-256-GCM storage, reveal endpoints, IDOR protection
+│   ├── passwordRotation.test.js # Rotation intervals, stale password queries, refresh
+│   ├── security.test.js         # Helmet security HTTP headers and CORS whitelisting
+│   └── smoke.test.js            # In-memory Express HTTP smoke test
+└── setup.js                     # Global Mongoose connection and environment setup
 ```
-
-Success response (`201`):
-
-```json
-{
-  "success": true,
-  "message": "User logged in successfully",
-  "data": {
-    "token": "<jwt>",
-    "user": {
-      "_id": "<userId>",
-      "name": "Alex Doe",
-      "email": "alex@example.com"
-    }
-  }
-}
-```
-
-### User APIs
-
-#### `GET /api/v1/user/`
-
-Success response (`200`):
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "_id": "<userId>",
-      "name": "Alex Doe",
-      "email": "alex@example.com"
-    }
-  ]
-}
-```
-
-#### `GET /api/v1/user/:id` (auth required)
-
-Success response (`200`):
-
-```json
-{
-  "success": true,
-  "data": {
-    "_id": "<userId>",
-    "name": "Alex Doe",
-    "email": "alex@example.com"
-  }
-}
-```
-
-#### `POST /api/v1/user/` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "CREATE new user"
-}
-```
-
-#### `PUT /api/v1/user/:id` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "UPDATE user"
-}
-```
-
-#### `DELETE /api/v1/user/:id` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "DELETE user"
-}
-```
-
-### Subscription APIs
-
-#### `GET /api/v1/subscription/` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "GET all subscriptions"
-}
-```
-
-#### `GET /api/v1/subscription/:id` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "GET subscription by Id  "
-}
-```
-
-#### `POST /api/v1/subscription/` (auth required)
-
-Request:
-
-```json
-{
-  "name": "Netflix",
-  "price": 15.99,
-  "currency": "USD",
-  "frequency": "monthly",
-  "category": "entertainment",
-  "paymentMethod": "credit card",
-  "startDate": "2026-04-01T00:00:00.000Z"
-}
-```
-
-Success response (`201`):
-
-```json
-{
-  "status": "success",
-  "data": {
-    "subscription": {
-      "_id": "<subscriptionId>",
-      "name": "Netflix",
-      "user": "<userId>",
-      "status": "active"
-    },
-    "workflowRunId": "<upstashWorkflowRunId>"
-  }
-}
-```
-
-#### `PUT /api/v1/subscription/:id` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "UPDATE subscription"
-}
-```
-
-#### `DELETE /api/v1/subscription/:id` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "DELETE subscription"
-}
-```
-
-#### `GET /api/v1/subscription/user/:id` (auth required)
-
-Success response (`200`):
-
-```json
-{
-  "status": "success",
-  "data": [
-    {
-      "_id": "<subscriptionId>",
-      "name": "Netflix",
-      "user": "<userId>",
-      "status": "active"
-    }
-  ]
-}
-```
-
-#### `PUT /api/v1/subscription/:id/cancel` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "CANCEL subscription"
-}
-```
-
-#### `GET /api/v1/subscription/upcoming-renewals` (implemented response stub)
-
-Success response (`200`):
-
-```json
-{
-  "title": "GET upcoming renewals"
-}
-```
-
-## Background Workflows
-
-### Trigger path
-
-- Internal workflow endpoint: `POST /api/v1/workflow/subscription/reminder`
-- This endpoint is intended to be triggered by Upstash Workflow.
-
-### Upstash trigger linkage
-
-When `POST /api/v1/subscription/` succeeds in `createSubscription`, the API calls `workflowClient.trigger(...)` with:
-
-- URL: `${SERVER_URL}/api/v1/workflow/subscription/reminder`
-- Body:
-
-```json
-{
-  "subscriptionId": "<subscriptionId>"
-}
-```
-
-- Returned value includes `workflowRunId`, which is sent back in the create-subscription response.
-
-### Reminder cadence
-
-- Reminder schedule is fixed at: `7`, `5`, `2`, `1` days before renewal.
-
-### Workflow execution stages
-
-1. `fetchSubscription`: Loads subscription + user (`name`, `email`) by ID.
-2. Date guard: Stops if missing, inactive, or already past renewal date.
-3. `sleepUntilReminder`: Waits until each reminder date (`renewalDate - N days`).
-4. `triggerReminder`: Sends reminder email for each eligible stage.
-
-## Security and Error Handling
-
-- Arcjet middleware runs on incoming requests and can block rate-limited/suspicious traffic.
-- JWT auth middleware validates bearer tokens and injects `req.user`.
-- Central error middleware normalizes Mongoose validation/cast/duplicate-key errors.
-
-## Current Implementation Status
-
-Implemented business logic:
-
-- `signUp`, `signIn`
-- `getUsers`, `getUser`
-- `createSubscription`, `getSubscriptionsByUser`
-- Workflow reminder orchestration and email trigger stages
-
-Implemented response stubs (route returns static success payload):
-
-- User: `POST /`, `PUT /:id`, `DELETE /:id`
-- Subscription: `GET /`, `GET /:id`, `PUT /:id`, `DELETE /:id`, `PUT /:id/cancel`, `GET /upcoming-renewals`
-
-Partially implemented / pending:
-
-- `signOut` controller
-- `updateSubscription` controller logic
-
