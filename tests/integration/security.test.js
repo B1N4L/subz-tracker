@@ -51,27 +51,24 @@ describe('Production Hardening & Security Middleware Suite', () => {
             expect(res.body).toEqual({ body: 'welcome to api' });
         });
 
-        it('should include CORS allow headers for whitelisted origins', async () => {
+        it('should block unwhitelisted browser origins when no frontend is configured', async () => {
             const res = await request(app)
                 .get('/')
-                .set('Origin', 'http://localhost:3000');
+                .set('Origin', 'http://unauthorized-domain.com');
 
-            expect(res.status).toBe(200);
-            expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
-            expect(res.headers['access-control-allow-credentials']).toBe('true');
+            // When blocked by CORS, Express returns error (500 or CORS message)
+            expect(res.status).toBe(500);
+            expect(res.body.message || res.body.error).toMatch(/CORS policy blocked access/i);
         });
 
-        it('should handle preflight OPTIONS requests successfully', async () => {
+        it('should block preflight OPTIONS requests for unwhitelisted origins', async () => {
             const res = await request(app)
                 .options('/api/v1/auth/sign-in')
-                .set('Origin', 'http://localhost:3000')
-                .set('Access-Control-Request-Method', 'POST')
-                .set('Access-Control-Request-Headers', 'Content-Type, Authorization');
+                .set('Origin', 'http://unauthorized-domain.com')
+                .set('Access-Control-Request-Method', 'POST');
 
-            expect([200, 204]).toContain(res.status);
-            expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
-            expect(res.headers['access-control-allow-methods']).toMatch(/POST/);
-            expect(res.headers['access-control-allow-credentials']).toBe('true');
+            expect(res.status).toBe(500);
+            expect(res.body.message || res.body.error).toMatch(/CORS policy blocked access/i);
         });
     });
 });

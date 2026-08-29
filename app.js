@@ -4,6 +4,8 @@ import helmet from "helmet";
 import cors from "cors";
 import corsOptions from "./config/cors.js";
 
+import connectToDB from "./database/mongodb.js";
+
 import userRouter from "./routes/user.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import workflowRouter from "./routes/workflow.routes.js";
@@ -46,6 +48,16 @@ app.use(express.urlencoded({ extended: false })); // helps to handle form data s
 app.use(cookieParser()); // stores cookies from incoming requests so you can store cookie data
 app.use(httpLoggerMiddleware); // HTTP access logging via Winston
 app.use(arcjetMiddleware);
+
+// Ensure MongoDB connection is active for serverless invocations & standard server
+app.use(async (req, res, next) => {
+    try {
+        await connectToDB();
+        next();
+    } catch (err) {
+        next(err);
+    }
+});
 
 // Swagger API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

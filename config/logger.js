@@ -79,28 +79,9 @@ const devConsoleFormat = winston.format.printf(({ level, message, timestamp, sta
 const transports = [];
 
 if (isProduction) {
-    // Production transports: Console (JSON) + File logs
+    // Production transports: Structured JSON to stdout/stderr (captured by Vercel Runtime Logs)
     transports.push(
         new winston.transports.Console({
-            format: winston.format.combine(
-                winston.format.timestamp(),
-                winston.format.errors({ stack: true }),
-                sanitizeFormat(),
-                winston.format.json()
-            ),
-        }),
-        new winston.transports.File({
-            filename: 'logs/error.log',
-            level: 'error',
-            format: winston.format.combine(
-                winston.format.timestamp(),
-                winston.format.errors({ stack: true }),
-                sanitizeFormat(),
-                winston.format.json()
-            ),
-        }),
-        new winston.transports.File({
-            filename: 'logs/combined.log',
             format: winston.format.combine(
                 winston.format.timestamp(),
                 winston.format.errors({ stack: true }),

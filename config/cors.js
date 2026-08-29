@@ -1,4 +1,4 @@
-import { CLIENT_ORIGIN, NODE_ENV } from "./env.js";
+import { CLIENT_ORIGIN } from "./env.js";
 
 const parseAllowedOrigins = () => {
     if (!CLIENT_ORIGIN) return [];
@@ -11,27 +11,20 @@ const allowedOrigins = parseAllowedOrigins();
 
 export const corsOptions = {
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, curl, Postman, server-to-server)
+        // Allow non-browser requests with no Origin header (curl, Postman, mobile apps, server-to-server)
         if (!origin) {
             return callback(null, true);
         }
 
-        // Check if origin is explicitly in configured whitelist
-        if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        // Allow origin if explicitly present in configured CLIENT_ORIGIN whitelist
+        if (allowedOrigins.length > 0 && (allowedOrigins.includes(origin) || allowedOrigins.includes("*"))) {
             return callback(null, true);
         }
 
-        // In non-production environments, permit local development origins
-        if (NODE_ENV !== "production") {
-            const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$/.test(origin);
-            if (isLocalhost) {
-                return callback(null, true);
-            }
-        }
-
+        // Reject unrecognized cross-origin browser requests
         return callback(new Error(`CORS policy blocked access for origin: ${origin}`));
     },
-    credentials: true,
+    credentials: false, // Stateless Bearer token authentication (no cross-origin credentials needed)
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
         "Content-Type",
@@ -40,7 +33,6 @@ export const corsOptions = {
         "Accept",
         "Origin",
     ],
-    exposedHeaders: ["Set-Cookie"],
     optionsSuccessStatus: 204,
 };
 
