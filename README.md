@@ -179,3 +179,44 @@ Base path: `/api/v1`
 ### Workflows (`/api/v1/workflow`)
 - `POST /subscription/reminder`: Upstash workflow endpoint for scheduled 7, 5, 2, and 1-day email reminders.
 - `POST /account/password-reminder`: Upstash workflow endpoint for scheduled password rotation reminder emails (7 days before, due date, 14 days overdue).
+
+---
+
+## Testing Infrastructure
+
+The project uses **Vitest** and **Supertest** for fast, in-memory unit and integration testing without requiring an external server process.
+
+```bash
+# Run full test suite (55 tests)
+npm test
+
+# Run unit tests only (crypto, logger sanitization, email templates)
+npm run test:unit
+
+# Run integration tests only (auth, users, subscriptions, accounts, credentials, rotation)
+npm run test:integration
+
+# Run in interactive watch mode
+npm run test:watch
+
+# Generate code coverage report
+npm run test:coverage
+```
+
+### Test Directory Structure
+```
+tests/
+├── unit/
+│   ├── crypto.test.js           # AES-256-GCM authenticated encryption & tampering tests
+│   ├── logger.test.js           # Sensitive data recursive redaction tests
+│   └── emailTemplate.test.js    # Subscription & Password rotation email templates
+├── integration/
+│   ├── auth.test.js             # Sign-up, Sign-in, Sign-out, validation barriers
+│   ├── user.test.js             # User profiles, IDOR barriers, account deletion
+│   ├── subscription.test.js     # Subscription CRUD, renewals, cancellation
+│   ├── account.test.js          # Account CRUD, category/tag filtering, search, IDOR
+│   ├── credential.test.js       # AES-256-GCM storage, reveal endpoints, IDOR protection
+│   ├── passwordRotation.test.js # Rotation intervals, stale password queries, refresh
+│   └── smoke.test.js            # In-memory Express HTTP smoke test
+└── setup.js                     # Global Mongoose connection and environment setup
+```

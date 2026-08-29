@@ -3,7 +3,10 @@ import logger from "../config/logger.js";
 
 const arcjetMiddleware = async (req, res, next) => {
     try{
-        const decision = await aj.protect(req, {requested: 1}); //protect this request and tell me your decision.
+        const decision = await aj.protect(req, {
+            requested: 1,
+            ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+        }); //protect this request and tell me your decision.
         logger.debug(`Arcjet decision: ${decision.conclusion}`, { reason: decision.reason });
         if (decision.isDenied()) {
             if(decision.reason.isRateLimit()){
