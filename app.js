@@ -1,5 +1,8 @@
 import express from "express";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import cors from "cors";
+import corsOptions from "./config/cors.js";
 
 import userRouter from "./routes/user.routes.js";
 import authRouter from "./routes/auth.routes.js";
@@ -15,6 +18,28 @@ import arcjetMiddleware from "./middlewares/arcjet.middleware.js";
 import httpLoggerMiddleware from "./middlewares/httpLogger.middleware.js";
 
 const app = express();
+
+// Security HTTP headers (Helmet)
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", "'unsafe-inline'"],
+                styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+                imgSrc: ["'self'", "data:", "https:"],
+                connectSrc: ["'self'"],
+                fontSrc: ["'self'", "https:", "data:"],
+                objectSrc: ["'none'"],
+                upgradeInsecureRequests: [],
+            },
+        },
+        crossOriginEmbedderPolicy: false,
+    })
+);
+
+// Cross-Origin Resource Sharing (CORS)
+app.use(cors(corsOptions));
 
 app.use(express.json()); // able to handle data sent as json format
 app.use(express.urlencoded({ extended: false })); // helps to handle form data sent as html in a simple format

@@ -217,6 +217,7 @@ tests/
 │   ├── account.test.js          # Account CRUD, category/tag filtering, search, IDOR
 │   ├── credential.test.js       # AES-256-GCM storage, reveal endpoints, IDOR protection
 │   ├── passwordRotation.test.js # Rotation intervals, stale password queries, refresh
+│   ├── security.test.js         # Helmet security HTTP headers and CORS whitelisting
 │   └── smoke.test.js            # In-memory Express HTTP smoke test
 └── setup.js                     # Global Mongoose connection and environment setup
 ```

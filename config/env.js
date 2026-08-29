@@ -1,17 +1,17 @@
 import { config } from 'dotenv'; //dotenv npm package
 
-//extracts environmental variables
-//config({path: '.env'}); //suitable only when there's a single env. variable
+// extracts environmental variables
 config({
     path: `.env.${process.env.NODE_ENV || 'development'}.local`
 });
 
-//To switch between development and production with ease
-//port number is getting from the env. variables file
+// To switch between development and production with ease
+// port number is getting from the env. variables file
 export const {
     PORT,
     SERVER_URL,
     NODE_ENV,
+    CLIENT_ORIGIN,
     DB_URI,
     JWT_SECRET, JWT_EXPIRES_IN,
     ARCJET_KEY, ARCJET_ENV,
@@ -21,4 +21,3 @@ export const {
     ACCOUNT_ENCRYPTION_KEY,
     ACCOUNT_ENCRYPTION_KEY_VERSION,
 } = process.env;
-
